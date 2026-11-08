@@ -1,0 +1,103 @@
+import json, os
+
+FILE = "school_data.json"
+
+class Person:
+    def __init__(self, pid, name):
+        self.pid, self.name = pid, name
+
+class Student(Person):
+    def __init__(self, pid, name, cls, fee, paid=0, present=0, absent=0):
+        super().__init__(pid, name)
+        self.cls, self.fee, self.paid = cls, fee, paid
+        self.present, self.absent = present, absent
+    def due(self):
+        return self.fee - self.paid
+
+class Teacher(Person):
+    def __init__(self, pid, name, subject, salary):
+        super().__init__(pid, name)
+        self.subject, self.salary = subject, salary
+
+class School:
+    def __init__(self):
+        self.students, self.teachers, self.next_id = [], [], 1
+        self.load()
+
+    def save(self):
+        data = {"next_id": self.next_id,
+                "students": [vars(s) for s in self.students],
+                "teachers": [vars(t) for t in self.teachers]}
+        with open(FILE, "w") as f:
+            json.dump(data, f, indent=2)
+
+    def load(self):
+        if not os.path.exists(FILE):
+            return
+        with open(FILE) as f:
+            d = json.load(f)
+        self.next_id = d["next_id"]
+        self.students = [Student(s["pid"], s["name"], s["cls"], s["fee"],
+                                 s["paid"], s["present"], s["absent"]) for s in d["students"]]
+        self.teachers = [Teacher(t["pid"], t["name"], t["subject"], t["salary"])
+                         for t in d["teachers"]]
+
+    def find(self, pid):
+        return next((s for s in self.students if s.pid == pid), None)
+
+def ask(msg, cast=str):
+    while True:
+        try:
+            return cast(input(msg).strip())
+        except ValueError:
+            print("Sahi number likho.")
+
+def main():
+    sc = School()
+    while True:
+        print("\n=== SCHOOL MANAGEMENT SYSTEM ===")
+        print("1 Add Student  2 Add Teacher  3 View Students  4 View Teachers")
+        print("5 Attendance   6 Fee Jama     7 Delete Student 0 Exit")
+        c = ask("Choice: ", int)
+
+        if c == 1:
+            sc.students.append(Student(sc.next_id, ask("Naam: "), ask("Class: "), ask("Fee: ", float)))
+            sc.next_id += 1
+            sc.save(); print("Student add ho gaya.")
+        elif c == 2:
+            sc.teachers.append(Teacher(sc.next_id, ask("Naam: "), ask("Subject: "), ask("Salary: ", float)))
+            sc.next_id += 1
+            sc.save(); print("Teacher add ho gaya.")
+        elif c == 3:
+            if not sc.students: print("Koi student nahi.")
+            for s in sc.students:
+                print(f"{s.pid} | {s.name} | {s.cls} | Fee:{s.fee} Paid:{s.paid} Due:{s.due()} | P:{s.present} A:{s.absent}")
+        elif c == 4:
+            if not sc.teachers: print("Koi teacher nahi.")
+            for t in sc.teachers:
+                print(f"{t.pid} | {t.name} | {t.subject} | {t.salary}")
+        elif c == 5:
+            s = sc.find(ask("Student ID: ", int))
+            if s:
+                if ask("Present? (y/n): ").lower() == "y": s.present += 1
+                else: s.absent += 1
+                sc.save(); print("Attendance lag gayi.")
+            else: print("Student nahi mila.")
+        elif c == 6:
+            s = sc.find(ask("Student ID: ", int))
+            if s:
+                a = ask("Amount: ", float)
+                if 0 < a <= s.due():
+                    s.paid += a; sc.save(); print("Fee jama. Due:", s.due())
+                else: print("Invalid amount.")
+            else: print("Student nahi mila.")
+        elif c == 7:
+            s = sc.find(ask("Student ID: ", int))
+            if s: sc.students.remove(s); sc.save(); print("Delete ho gaya.")
+            else: print("Student nahi mila.")
+        elif c == 0:
+            print("Allah hafiz!"); break
+        else:
+            print("Ghalat choice.")
+
+main()
